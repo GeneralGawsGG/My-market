@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Brawl Hub</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg: #1a1a2e; --card: #16213e; --accent: #fbc531;
+            --text: #ffffff; --secondary: #487eb0; --danger: #e84118;
+        }
+        body { font-family: 'Arial', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 80px; }
+        #access-denied, #maintenance-screen {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;
+        }
+        .header { background: #0f3460; padding: 15px; text-align: center; font-weight: bold; color: var(--accent); border-bottom: 2px solid var(--accent); position: sticky; top: 0; z-index: 10; }
+        .page { display: none; padding: 15px; animation: fadeIn 0.3s; }
+        .active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .profile-card { background: var(--card); border-radius: 20px; padding: 20px; text-align: center; border: 1px solid var(--secondary); }
+        .avatar { width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--accent); margin-bottom: 10px; background: #333; }
+        .admin-block { display: none; margin-top: 20px; padding: 15px; border: 2px dashed var(--accent); border-radius: 15px; background: rgba(251, 197, 49, 0.1); }
+        .btn-admin { background: var(--danger); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; margin-top: 10px; }
+        .post { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 10px; position: relative; border-left: 4px solid var(--accent); }
+        .rank-badge { position: absolute; right: 15px; top: 15px; background: var(--accent); color: #000; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
+        .fab { position: fixed; bottom: 90px; right: 20px; width: 60px; height: 60px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 35px; color: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 5; }
+        .nav { position: fixed; bottom: 0; width: 100%; background: #0f3460; display: flex; justify-content: space-around; padding: 12px 0; border-top: 2px solid var(--accent); z-index: 20; }
+        .nav-item { font-size: 12px; text-align: center; color: #aaa; }
+        .nav-item.active-nav { color: var(--accent); }
+        #modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card); width: 85%; padding: 25px; border-radius: 20px; border: 2px solid var(--accent); z-index: 1000; }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; background: #0f3460; color: white; border: 1px solid var(--secondary); border-radius: 8px; box-sizing: border-box; }
+        .btn-main { background: var(--accent); color: #000; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="access-denied">
+        <h1 style="color: var(--danger);">🛑 ОШИБКА ДОСТУПА</h1>
+        <p>Сайт работает только через Telegram.<br>Ожидание проверки (20 сек)...</p>
+    </div>
+
+    <div id="maintenance-screen">
+        <h1 style="color: var(--accent);">🛠 ТЕХ ПЕРЕРЫВ</h1>
+        <p>Идут технические работы.</p>
+        <button class="btn-main" onclick="location.reload()">Перезагрузить</button>
+        <button id="admin-stop-maint" class="btn-admin" style="display:none;" onclick="stopMaintenance()">ЗАКОНЧИТЬ (АДМИН)</button>
+    </div>
+
+    <div id="app-content" style="display: none;">
+        <div class="header" id="title">ПОИСК ТИМЕЙТОВ</div>
+        <div id="search_page" class="page active">
+            <div id="posts_list"><div class="post"><span class="rank-badge">30k 🏆</span><b>ProPlayer</b><br>Ищу тиму!</div></div>
+            <div class="fab" onclick="showModal()">+</div>
+        </div>
+        <div id="tourneys_page" class="page"><h3>Турниры скоро!</h3></div>
+        <div id="profile_page" class="page">
+            <div class="profile-card">
+                <img id="user_photo" class="avatar" src="" alt="">
+                <h2 id="user_name">Brawler</h2>
+                <p id="user_id">ID: ---</p>
+                <div id="admin-panel" class="admin-block">
+                    <h3>👑 АДМИНКА</h3>
+                    <button class="btn-admin" onclick="startMaintenanceTimer()">Начать тех. перерыв</button>
+                </div>
+            </div>
+        </div>
+        <div id="modal">
+            <h3>Создать поиск</h3>
+            <input type="number" id="cups" placeholder="Твои кубки">
+            <select id="role"><option>Танк</option><option>Дамагер</option></select>
+            <button class="btn-main" onclick="addPost()">ОПУБЛИКОВАТЬ</button>
+            <button style="color:gray; border:none; background:none; width:100%;" onclick="hideModal()">Отмена</button>
+        </div>
+        <div class="nav">
+            <div class="nav-item active-nav" onclick="nav('search_page', 'ПОИСК', this)">🔍<br>Поиск</div>
+            <div class="nav-item" onclick="nav('tourneys_page', 'ТУРНИРЫ', this)">🏆<br>Турниры</div>
+            <div class="nav-item" onclick="nav('profile_page', 'ПРОФИЛЬ', this)">👤<br>Профиль</div>
+        </div>
+    </div>
+
+<script>
+    const tg = window.Telegram.WebApp;
+    const ADMIN_ID = 5186338692; // ТВОЙ ID
+    tg.ready();
+
+    const accessTimeout = setTimeout(() => {
+        if (!tg.initDataUnsafe?.user) {
+            document.getElementById('access-denied').style.display = 'flex';
+        }
+    }, 20000);
+
+    function initApp() {
+        if (tg.initDataUnsafe?.user) {
+            clearTimeout(accessTimeout);
+            document.getElementById('access-denied').style.display = 'none';
+            document.getElementById('app-content').style.display = 'block';
+            tg.expand();
+            const user = tg.initDataUnsafe.user;
+            document.getElementById('user_name').innerText = user.first_name;
+            document.getElementById('user_id').innerText = "ID: " + user.id;
+            if (user.photo_url) document.getElementById('user_photo').src = user.photo_url;
+            if (user.id === ADMIN_ID) {
+                document.getElementById('admin-panel').style.display = 'block';
+                document.getElementById('admin-stop-maint').style.display = 'block';
+            }
+        } else { setTimeout(initApp, 500); }
+    }
+
+    function nav(page, title, el) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(page).classList.add('active');
+        document.getElementById('title').innerText = title;
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
+        el.classList.add('active-nav');
+    }
+
+    function showModal() { document.getElementById('modal').style.display = 'block'; }
+    function hideModal() { document.getElementById('modal').style.display = 'none'; }
+
+    function addPost() {
+        const cups = document.getElementById('cups').value;
+        const role = document.getElementById('role').value;
+        if(!cups) return alert("Введите кубки!");
+        // ОТПРАВКА ДАННЫХ БОТУ
+        tg.sendData(`АНКЕТА: ${cups}🏆, Роль: ${role}`);
+    }
+
+    function startMaintenanceTimer() {
+        tg.showConfirm("Начать тех. перерыв?", (ok) => {
+            if(ok) {
+                tg.sendData("АДМИН: Запуск тех. перерыва!"); // Уведомляем бота
+                setTimeout(() => {
+                    document.getElementById('app-content').style.display = 'none';
+                    document.getElementById('maintenance-screen').style.display = 'flex';
+                }, 5000); 
+            }
+        });
+    }
+
+    function stopMaintenance() {
+        document.getElementById('maintenance-screen').style.display = 'none';
+        document.getElementById('app-content').style.display = 'block';
+    }
+
+    initApp();
+</script>
+</body>
+</html>
